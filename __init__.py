@@ -37,6 +37,10 @@ if not os.getenv("PYTEST_CURRENT_TEST"):
         NODE_CLASS_MAPPINGS as FASTVQA_NODES,
         NODE_DISPLAY_NAME_MAPPINGS as FASTVQA_NAMES
     )
+    from .nodes.laion_nodes import (
+        NODE_CLASS_MAPPINGS as LAION_NODES,
+        NODE_DISPLAY_NAME_MAPPINGS as LAION_NAMES
+    )
 else:
     # During tests, expose empty mappings to avoid ImportPathMismatchError
     # The tests import core/nodes directly, so root package isn't needed
@@ -58,6 +62,8 @@ else:
     DOVER_NAMES = {}
     FASTVQA_NODES = {}
     FASTVQA_NAMES = {}
+    LAION_NODES = {}
+    LAION_NAMES = {}
 
 # Merge all node mappings
 NODE_CLASS_MAPPINGS = {
@@ -68,6 +74,7 @@ NODE_CLASS_MAPPINGS = {
     **CLIP_NODES,
     **DOVER_NODES,
     **FASTVQA_NODES,
+    **LAION_NODES,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -78,6 +85,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **CLIP_NAMES,
     **DOVER_NAMES,
     **FASTVQA_NAMES,
+    **LAION_NAMES,
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

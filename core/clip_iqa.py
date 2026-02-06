@@ -225,8 +225,9 @@ def calculate_text_video_alignment(
                 outputs = model(**inputs)
                 # Normalize to 0-1 range
                 similarity = outputs.logits_per_image[0, 0].item()
-                # CLIP logits are typically in [-1, 1] range after normalization
-                score = (similarity + 1) / 2  # Map to [0, 1]
+                # CLIP logits are scaled dot products (can be large, e.g., 20.0)
+                # Use sigmoid to map to [0, 1] probability-like score
+                score = torch.sigmoid(torch.tensor(similarity)).item()
                 
             else:
                 from PIL import Image
