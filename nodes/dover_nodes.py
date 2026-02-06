@@ -7,6 +7,12 @@ Provides:
 
 import torch
 from typing import Dict, Any, Tuple
+try:
+    from ..utils.logger import get_logger
+except (ImportError, ValueError):
+    from utils.logger import get_logger
+
+logger = get_logger()
 
 # Import core DOVER functions
 try:
@@ -64,6 +70,8 @@ class VQ_DOVERQuality:
         aesthetic = result["aesthetic_score"]
         technical = result["technical_score"]
         overall = result["overall_score"]
+        
+        logger.info(f"DOVER Scores - Overall: {overall:.4f}, Aesthetic: {aesthetic:.4f}, Technical: {technical:.4f} (Input shape: {video.shape})")
         
         # Interpretation
         def interpret_score(score: float, category: str) -> str:

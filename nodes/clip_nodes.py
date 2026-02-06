@@ -8,6 +8,12 @@ Provides:
 
 import torch
 from typing import Dict, Any, Tuple
+try:
+    from ..utils.logger import get_logger
+except (ImportError, ValueError):
+    from utils.logger import get_logger
+
+logger = get_logger()
 
 # Import core CLIP functions
 try:
@@ -53,9 +59,10 @@ class VQ_CLIPAestheticScore:
             )
         
         result = calculate_clip_aesthetic_score(images)
-        
         score = result["aesthetic_score"]
         per_image = result["per_image_scores"]
+        
+        logger.info(f"CLIP Aesthetic Score: {score:.4f} (Input shape: {images.shape})")
         
         # Interpretation
         if score >= 0.7:
@@ -125,6 +132,8 @@ class VQ_TextVideoAlignment:
         score = result["alignment_score"]
         per_frame = result["per_frame_scores"]
         indices = result["frame_indices"]
+        
+        logger.info(f"CLIP Text-Video Alignment: {score:.4f} (Prompt: '{prompt[:30]}...', Frames: {len(per_frame)})")
         
         # Interpretation
         if score >= 0.7:

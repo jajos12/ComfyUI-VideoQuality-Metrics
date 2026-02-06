@@ -15,8 +15,8 @@ A common challenge in Generative AI (Diffusion models) is the lack of a "ground 
 
 ### Scenario B: Text-to-Video (No-Reference / Internal)
 *   **Workflow**: You have a single generated video from a text prompt.
-*   **Metrics**: Use **Temporal Consistency** metrics (`VQ_TemporalConsistency`, `VQ_MotionSmoothness`).
-*   **Goal**: These nodes analyze the video *internally*. They detect flickering, jitter, and unnatural motion without needing a reference.
+*   **Metrics**: Use **Temporal Consistency** (`VQ_TemporalConsistency`, `VQ_MotionSmoothness`) and **Deep Learning NR-VQA** (`VQ_DOVERQuality`, `VQ_FASTVQAScore`).
+*   **Goal**: These nodes analyze the video *internally*. They detect flickering, jitter, artifacts, and aesthetic issues without needing a reference.
 
 ### Scenario C: Comparative Benchmarking (Workflow A vs. B)
 *   **Workflow**: You have two different models/prompts and want to know which is better.
@@ -26,7 +26,6 @@ A common challenge in Generative AI (Diffusion models) is the lack of a "ground 
 ---
 
 ## 🏗️ System Architecture
-The following diagram illustrates the metric extraction and evaluation pipeline implemented in this toolkit:
 
 ```mermaid
 graph TD
@@ -41,6 +40,7 @@ graph TD
         Temp["<b>Temporal Consistency</b><br/>Warping Error, Flickering"]
         Dist["<b>Distributional Realism</b><br/>FVD, FID (Pretrained)"]
         Col["<b>Color Accuracy</b><br/>CIEDE2000"]
+        DL["<b>Deep Learning NR-VQA</b><br/>DOVER, FAST-VQA, CLIP"]
     end
 
     subgraph Analysis_Layer ["Analysis & Reporting"]
@@ -56,7 +56,7 @@ The library is structured into modular components:
 - **`core/`**: Pure PyTorch implementations of the math and feature extraction.
 - **`nodes/`**: ComfyUI-specific wrapper classes.
 - **`models/`**: Pre-trained weights management and auto-downloaders.
-- **`utils/`**: Shared plotting, statistics, and tensor manipulation logic.
+- **`utils/`**: Shared plotting, statistics, logging, and tensor manipulation logic.
 
 ---
 
@@ -208,3 +208,447 @@ Because no single metric is perfect, we recommend using the **Radar Chart Node**
 - **Circle Shape**: Good for creative generation (Low FVD, High Smoothness, ignoring PSNR).
 
 For a complete analysis, connect all metric outputs to the `VQ_RadarChart` node to visualize your model's "Performance Fingerprint."
+
+---
+
+## 📋 Complete Node Reference
+
+This section documents every node in detail, including inputs, outputs, and comprehensive interpretation guidelines.
+
+---
+
+### `VQ_FullReferenceMetrics` — PSNR, SSIM, CIEDE2000
+
+**Category**: `VideoQuality`  
+**Type**: Full-Reference (requires ground truth)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `images` | IMAGE | Generated/processed frames |
+| `reference` | IMAGE | Ground truth frames |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `psnr` | FLOAT | Peak Signal-to-Noise Ratio (dB) |
+| `ssim` | FLOAT | Structural Similarity Index [0-1] |
+| `ciede2000` | FLOAT | Perceptual color difference |
+| `summary` | STRING | Human-readable report |
+
+#### Interpretation Guidelines
+
+##### PSNR (Peak Signal-to-Noise Ratio)
+Measures pixel-level reconstruction accuracy. Higher is better.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 45 dB** | Excellent | Almost indistinguishable from original |
+| **40-45 dB** | Very Good | Professional broadcast quality |
+| **35-40 dB** | Good | High-quality streaming (Netflix) |
+| **30-35 dB** | Acceptable | Standard web video |
+| **25-30 dB** | Fair | Visible compression artifacts |
+| **< 25 dB** | Poor | Significant degradation |
+
+> [!WARNING]
+> PSNR is extremely sensitive to spatial shifts. A 1-pixel misalignment can drop PSNR by 10+ dB even if the video looks identical. Use SSIM for perceptual quality.
+
+##### SSIM (Structural Similarity Index)
+Measures structural preservation aligned with human perception. Range: [0, 1]. Higher is better.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 0.97** | Excellent | Minimal degradation, visually identical |
+| **0.95-0.97** | Very Good | Slight differences, professional quality |
+| **0.90-0.95** | Good | Minor structural changes visible |
+| **0.85-0.90** | Fair | Noticeable blurring or warping |
+| **0.80-0.85** | Acceptable | Visible distortions |
+| **< 0.80** | Poor | Severe structural corruption |
+
+##### CIEDE2000 (ΔE00)
+Measures perceptual color difference in CIELAB space. Lower is better.
+
+| Value | Perception | Description |
+|:---|:---|:---|
+| **< 1.0** | Imperceptible | No visible color difference |
+| **1.0-2.0** | Barely Perceptible | Only visible under close inspection |
+| **2.0-3.5** | Noticeable | Clear color shift to trained eye |
+| **3.5-5.0** | Significant | Obvious color difference to anyone |
+| **> 5.0** | Severe | Major color corruption (skin turns green) |
+
+---
+
+### `VQ_TemporalConsistency` — Warping Error & Flickering
+
+**Category**: `VideoQuality/Temporal`  
+**Type**: No-Reference (internal analysis)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `video_frames` | IMAGE | Video tensor [T, H, W, C] |
+| `bidirectional_flow` | BOOLEAN | Use forward+backward flow (more accurate) |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `warping_error` | FLOAT | Motion inconsistency score [0-∞] |
+| `flickering_score` | FLOAT | Brightness instability [0-1] |
+| `summary` | STRING | Human-readable report |
+
+#### Interpretation Guidelines
+
+##### Warping Error
+Measures how consistently pixels move between frames. Lower is better.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **< 0.02** | Excellent | Perfectly smooth motion |
+| **0.02-0.05** | Very Good | Minor temporal noise |
+| **0.05-0.10** | Good | Slight jitter in fine details |
+| **0.10-0.20** | Fair | Noticeable warping artifacts |
+| **0.20-0.50** | Poor | Objects "swimming" or morphing |
+| **> 0.50** | Severe | Major temporal discontinuities |
+
+> [!TIP]
+> A sudden spike in warping error at a specific frame indicates a "glitch" or "jump" in the motion. Use per-frame analysis to locate the exact problem frame.
+
+##### Flickering Score
+Measures brightness instability over time. Lower is better.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **< 0.05** | Excellent | Perfectly stable lighting |
+| **0.05-0.10** | Very Good | Imperceptible variation |
+| **0.10-0.20** | Good | Slight luminance drift |
+| **0.20-0.30** | Fair | Noticeable flicker |
+| **> 0.30** | Poor | Distracting strobe effect |
+
+---
+
+### `VQ_MotionSmoothness` — Jerk Analysis
+
+**Category**: `VideoQuality/Temporal`  
+**Type**: No-Reference (internal analysis)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `video_frames` | IMAGE | Video tensor [T, H, W, C] |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `smoothness_score` | FLOAT | Motion fluidity [0-1] |
+| `mean_jerk` | FLOAT | Average acceleration change |
+| `summary` | STRING | Human-readable report |
+
+#### Interpretation Guidelines
+
+##### Smoothness Score
+Derived from jerk (3rd derivative of position). Higher is better.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 0.85** | Excellent | Cinematic, buttery smooth |
+| **0.70-0.85** | Very Good | Professional quality |
+| **0.55-0.70** | Good | Slight jitter in fast motion |
+| **0.40-0.55** | Fair | Noticeable robotic movement |
+| **0.25-0.40** | Poor | Jerky, unnatural motion |
+| **< 0.25** | Severe | Extreme jitter (frame interpolation failures) |
+
+##### Mean Jerk
+Raw acceleration change metric. Lower is better (closer to 0 = smoother).
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **< 0.1** | Excellent | Human-annotated quality smoothness |
+| **0.1-0.3** | Good | Natural motion |
+| **0.3-0.7** | Fair | Some abrupt changes |
+| **> 0.7** | Poor | Robotic or erratic |
+
+---
+
+### `VQ_FVD` — Fréchet Video Distance
+
+**Category**: `VideoQuality/Distributional`  
+**Type**: Reference-Based (distribution comparison)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `video_generated` | IMAGE | Generated video batch |
+| `video_reference` | IMAGE | Reference video batch |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `fvd` | FLOAT | Distributional distance |
+| `summary` | STRING | Human-readable report |
+
+#### Interpretation Guidelines
+
+FVD measures how "realistic" generated videos are compared to real videos. Lower is better.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **< 50** | Excellent | State-of-the-art quality |
+| **50-100** | Very Good | High-quality generation |
+| **100-150** | Good | Minor distributional gaps |
+| **150-250** | Fair | Noticeable realism issues |
+| **250-400** | Poor | Significant quality gap |
+| **> 400** | Severe | Unrealistic outputs |
+
+> [!IMPORTANT]
+> FVD differences of ~50 points are generally distinguishable by human observers. Use FVD for model comparison, not absolute quality assessment.
+
+> [!WARNING]
+> FVD can be biased toward per-frame quality over temporal coherence. A video with temporal glitches may score better than one with slight blur.
+
+---
+
+### `VQ_FID` — Fréchet Inception Distance
+
+**Category**: `VideoQuality/Distributional`  
+**Type**: Reference-Based (frame distribution)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `images_generated` | IMAGE | Generated images/frames |
+| `images_reference` | IMAGE | Reference images/frames |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `fid` | FLOAT | Distributional distance |
+| `summary` | STRING | Human-readable report |
+
+#### Interpretation Guidelines
+
+FID measures the realism and diversity of generated images. Lower is better.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **< 10** | Excellent | Near-photorealistic |
+| **10-30** | Very Good | High-quality generation |
+| **30-50** | Good | Competitive with baselines |
+| **50-100** | Fair | Noticeable quality gap |
+| **100-200** | Poor | Significant realism issues |
+| **> 200** | Severe | Clearly artificial |
+
+> [!NOTE]
+> FID is most meaningful in comparative contexts. Use it to track training progress or compare model architectures, not as an absolute quality measure.
+
+---
+
+### `VQ_CLIPAestheticScore` — Frame Aesthetic Quality
+
+**Category**: `VideoQuality/CLIP`  
+**Type**: No-Reference (learned aesthetic)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `images` | IMAGE | Frames to evaluate |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `aesthetic_score` | FLOAT | Visual appeal [0-1] |
+| `summary` | STRING | Human-readable report |
+
+#### Interpretation Guidelines
+
+Based on CLIP's learned understanding of visual aesthetics (trained on AVA dataset patterns).
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 0.75** | Excellent | Highly aesthetic, artistic quality |
+| **0.60-0.75** | Very Good | Visually pleasing composition |
+| **0.50-0.60** | Good | Average aesthetic appeal |
+| **0.40-0.50** | Fair | Below-average visual quality |
+| **0.25-0.40** | Poor | Unpleasing composition/colors |
+| **< 0.25** | Severe | Very low aesthetic value |
+
+---
+
+### `VQ_TextVideoAlignment` — Prompt Adherence
+
+**Category**: `VideoQuality/CLIP`  
+**Type**: No-Reference (semantic alignment)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `video` | IMAGE | Video frames |
+| `prompt` | STRING | Text description |
+| `sample_frames` | INT | Frames to sample (default: 8) |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `alignment_score` | FLOAT | Prompt match [0-1] |
+| `summary` | STRING | Human-readable report with drift detection |
+
+#### Interpretation Guidelines
+
+Measures semantic alignment between video content and text prompt.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 0.75** | Excellent | Strong prompt adherence |
+| **0.60-0.75** | Very Good | Good semantic match |
+| **0.50-0.60** | Good | Moderate alignment |
+| **0.40-0.50** | Fair | Partial match, some drift |
+| **0.25-0.40** | Poor | Weak correlation |
+| **< 0.25** | Severe | Video unrelated to prompt |
+
+> [!TIP]
+> Check the "Temporal Drift" value in the summary. A negative drift (e.g., -0.15) indicates the video "forgets" the prompt over time — a common issue with long text-to-video generations.
+
+---
+
+### `VQ_DOVERQuality` — Disentangled Quality Assessment
+
+**Category**: `VideoQuality/DOVER`  
+**Type**: No-Reference (deep learning VQA)  
+**Weights**: Auto-downloaded from [VQAssessment/DOVER](https://github.com/QualityAssessment/DOVER) (~100MB)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `video` | IMAGE | Video tensor |
+| `num_frames` | INT | Frames to sample (default: 8) |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `aesthetic_score` | FLOAT | Composition/artistic quality [0-1] |
+| `technical_score` | FLOAT | Sharpness/noise/artifacts [0-1] |
+| `overall_score` | FLOAT | Weighted combination [0-1] |
+| `summary` | STRING | Report with imbalance detection |
+
+#### Interpretation Guidelines
+
+DOVER provides MOS-correlated scores (Pearson >0.85 on benchmark datasets).
+
+##### Aesthetic Score (Composition, Color, Lighting)
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 0.70** | Excellent | Professional cinematography |
+| **0.55-0.70** | Very Good | Pleasing composition |
+| **0.40-0.55** | Good | Acceptable aesthetics |
+| **0.25-0.40** | Fair | Uninteresting framing |
+| **< 0.25** | Poor | Poor visual design |
+
+##### Technical Score (Sharpness, Noise, Exposure)
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 0.70** | Excellent | Broadcast quality |
+| **0.55-0.70** | Very Good | Sharp, clean output |
+| **0.40-0.55** | Good | Minor artifacts |
+| **0.25-0.40** | Fair | Noticeable blur/noise |
+| **< 0.25** | Poor | Severe degradation |
+
+##### Overall Score (0.428 × Aesthetic + 0.572 × Technical)
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 0.65** | Excellent | Top-tier quality |
+| **0.50-0.65** | Very Good | High quality |
+| **0.35-0.50** | Good | Acceptable |
+| **0.20-0.35** | Fair | Below average |
+| **< 0.20** | Poor | Low quality |
+
+> [!IMPORTANT]
+> **Imbalance Detection**: If `|aesthetic - technical| > 0.2`, the video has a quality imbalance. Example: "Aesthetic > Technical" means good composition but blurry/noisy. "Technical > Aesthetic" means sharp but boring.
+
+---
+
+### `VQ_FASTVQAScore` — Efficient High-Resolution VQA
+
+**Category**: `VideoQuality/FAST-VQA`  
+**Type**: No-Reference (deep learning VQA)  
+**Weights**: Auto-downloaded from [VQAssessment/FAST-VQA](https://github.com/VQAssessment/FAST-VQA-and-FasterVQA) (~200MB)
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `video` | IMAGE | Video tensor |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `quality_score` | FLOAT | Overall quality [0-1] |
+| `summary` | STRING | Human-readable report |
+
+#### Interpretation Guidelines
+
+FAST-VQA uses Grid Mini-patch Sampling (GMS) to preserve high-resolution details.
+
+| Value | Quality | Description |
+|:---|:---|:---|
+| **> 0.75** | Excellent | Extremely good quality |
+| **0.60-0.75** | Very Good | Good quality |
+| **0.50-0.60** | Good | Fair quality |
+| **0.35-0.50** | Fair | Below average |
+| **0.25-0.35** | Poor | Bad quality |
+| **< 0.25** | Severe | Extremely bad quality |
+
+> [!TIP]
+> FAST-VQA is particularly effective at detecting fine-grained artifacts like upscaling halos, compression blocking, and noise patterns that global metrics miss.
+
+---
+
+### `VQ_RadarChart` — Multi-Metric Visualization
+
+**Category**: `VideoQuality/Reporting`
+
+Creates a radar chart showing normalized scores across all metrics for quick visual comparison.
+
+| Input | Type | Description |
+|:---|:---|:---|
+| `psnr, ssim, ...` | FLOAT | Various metric values |
+| `chart_size` | INT | Output image size |
+
+| Output | Type | Description |
+|:---|:---|:---|
+| `radar_chart` | IMAGE | Visualization tensor |
+| `metrics_json` | STRING | Raw + normalized values |
+
+**Shape Interpretation**:
+- **Circle**: Balanced quality across all dimensions
+- **Spade**: Optimized for full-reference fidelity (upscaling)
+- **Star**: Strong temporal but weak fidelity (creative generation)
+
+---
+
+### `VQ_MetricsLogger` — JSON Export
+
+**Category**: `VideoQuality/Reporting`
+
+Exports all metrics to structured JSON for experiment tracking and automation.
+
+---
+
+### `VQ_MetricsComparison` — Statistical Comparison
+
+**Category**: `VideoQuality/Reporting`
+
+Compares two workflow JSON outputs with statistical significance testing.
+
+**P-Value Interpretation**:
+- **P < 0.01**: Highly significant difference
+- **P < 0.05**: Significant difference (trustworthy)
+- **P < 0.10**: Marginally significant
+- **P ≥ 0.10**: Not significant (could be random)
+
+---
+
+## 📊 Quick Reference: Optimal Values
+
+| Metric | Excellent | Good | Fair | Poor |
+|:---|:---|:---|:---|:---|
+| **PSNR** | > 40 dB | 35-40 dB | 30-35 dB | < 30 dB |
+| **SSIM** | > 0.95 | 0.90-0.95 | 0.85-0.90 | < 0.85 |
+| **CIEDE2000** | < 1.0 | 1.0-2.0 | 2.0-5.0 | > 5.0 |
+| **Warping Error** | < 0.02 | 0.02-0.05 | 0.05-0.15 | > 0.15 |
+| **Flickering** | < 0.05 | 0.05-0.10 | 0.10-0.25 | > 0.25 |
+| **Smoothness** | > 0.85 | 0.70-0.85 | 0.50-0.70 | < 0.50 |
+| **FVD** | < 50 | 50-150 | 150-300 | > 300 |
+| **FID** | < 10 | 10-30 | 30-100 | > 100 |
+| **CLIP Aesthetic** | > 0.70 | 0.50-0.70 | 0.35-0.50 | < 0.35 |
+| **DOVER Overall** | > 0.60 | 0.45-0.60 | 0.30-0.45 | < 0.30 |
+| **FAST-VQA** | > 0.70 | 0.50-0.70 | 0.35-0.50 | < 0.35 |
+
+---
+
+## 📚 References
+
+1. **PSNR/SSIM**: Z. Wang et al., "Image Quality Assessment: From Error Visibility to Structural Similarity," IEEE TIP, 2004.
+2. **CIEDE2000**: M.R. Luo et al., "The Development of the CIE 2000 Colour-Difference Formula," Color Research & Application, 2001.
+3. **FVD**: T. Unterthiner et al., "Towards Accurate Generative Models of Video," arXiv:1812.01717, 2018.
+4. **DOVER**: H. Wu et al., "Exploring Video Quality Assessment on User Generated Contents," ICCV, 2023.
+5. **FAST-VQA**: H. Wu et al., "FAST-VQA: Efficient End-to-end Video Quality Assessment," ECCV, 2022.

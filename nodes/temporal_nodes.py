@@ -7,6 +7,12 @@ from ..core.temporal import (
     calculate_temporal_flickering,
     calculate_motion_smoothness
 )
+try:
+    from ..utils.logger import get_logger
+except (ImportError, ValueError):
+    from utils.logger import get_logger
+
+logger = get_logger()
 
 
 class VQ_TemporalConsistency:
@@ -41,6 +47,8 @@ class VQ_TemporalConsistency:
         
         warping_error = warp_result['warping_error'].item()
         flickering_score = flicker_result['flickering_score'].item()
+        
+        logger.info(f"Temporal Consistency - Warping: {warping_error:.4f}, Flickering: {flickering_score:.4f} (Input shape: {video.shape})")
         
         summary = (
             f"Temporal Consistency Analysis\n"
@@ -82,6 +90,8 @@ class VQ_MotionSmoothness:
         
         smoothness = result['smoothness_score'].item()
         jerk = result['mean_jerk'].item()
+        
+        logger.info(f"Motion Smoothness - Score: {smoothness:.4f}, Jerk: {jerk:.4f} (Input shape: {video.shape})")
         
         # Interpret the score
         if smoothness > 0.8:

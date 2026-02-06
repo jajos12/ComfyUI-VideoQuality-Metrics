@@ -7,6 +7,12 @@ import json
 from typing import Dict, Any
 from ..utils.plotting import normalize_metrics, generate_radar_chart_tensor
 from ..utils.stats import compare_workflows
+try:
+    from ..utils.logger import get_logger
+except (ImportError, ValueError):
+    from utils.logger import get_logger
+
+logger = get_logger()
 
 
 class VQ_RadarChart:
@@ -175,7 +181,11 @@ class VQ_MetricsComparison:
             else:
                 report_lines.append(f"{key}: A={val_a} vs B={val_b}")
         
-        return ("\n".join(report_lines),)
+                report_lines.append(f"{key}: A={val_a} vs B={val_b}")
+        
+        result_str = "\n".join(report_lines)
+        logger.info(f"Workflow Comparison:\n{result_str}")
+        return (result_str,)
 
 
 NODE_CLASS_MAPPINGS = {

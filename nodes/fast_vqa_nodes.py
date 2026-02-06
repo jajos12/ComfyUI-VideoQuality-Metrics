@@ -7,6 +7,12 @@ Provides:
 
 import torch
 from typing import Dict, Any, Tuple
+try:
+    from ..utils.logger import get_logger
+except (ImportError, ValueError):
+    from utils.logger import get_logger
+
+logger = get_logger()
 
 # Import core FAST-VQA functions
 try:
@@ -51,6 +57,8 @@ class VQ_FASTVQAScore:
         score = result["quality_score"]
         num_fragments = result["num_fragments"]
         grid_size = result["grid_size"]
+        
+        logger.info(f"FAST-VQA Score: {score:.4f}, Fragments: {num_fragments} (Input shape: {video.shape})")
         
         # Interpretation
         if score >= 0.7:

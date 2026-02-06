@@ -3,6 +3,12 @@ Distributional quality nodes for ComfyUI.
 """
 
 from ..core.distributional import calculate_fvd, calculate_fid, calculate_video_fid
+try:
+    from ..utils.logger import get_logger
+except (ImportError, ValueError):
+    from utils.logger import get_logger
+
+logger = get_logger()
 
 
 class VQ_FVD:
@@ -34,6 +40,8 @@ class VQ_FVD:
         
         result = calculate_fvd(gen, ref)
         fvd_val = result['fvd'].item()
+        
+        logger.info(f"FVD Score: {fvd_val:.4f} (Input shapes: {gen.shape} vs {ref.shape})")
         
         # Interpret FVD score
         if fvd_val < 50:
@@ -82,6 +90,8 @@ class VQ_FID:
         result = calculate_fid(images_generated, images_reference)
         fid_val = result['fid'].item()
         
+        logger.info(f"FID Score: {fid_val:.4f} (Samples: {result['n_samples'][0]} vs {result['n_samples'][1]})")
+        
         summary = (
             f"Fréchet Inception Distance (FID)\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -118,6 +128,8 @@ class VQ_VideoFID:
     def calculate(self, video1, video2):
         result = calculate_video_fid(video1, video2)
         mean_fid = result['video_fid']
+        
+        logger.info(f"Video Frame-by-Frame FID: {mean_fid:.4f} (Input shapes: {video1.shape} vs {video2.shape})")
         
         if 'per_frame_fid' in result:
             per_frame = result['per_frame_fid']
