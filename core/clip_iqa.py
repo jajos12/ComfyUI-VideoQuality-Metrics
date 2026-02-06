@@ -5,7 +5,7 @@ Provides:
 - Aesthetic quality scoring for individual frames
 - Text-video alignment scoring (prompt adherence)
 
-Uses OpenAI's CLIP model via torchmetrics for efficient inference.
+Uses OpenAI's CLIP model or HuggingFace Transformers for inference.
 """
 
 import torch

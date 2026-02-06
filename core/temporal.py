@@ -292,22 +292,36 @@ def calculate_temporal_flickering(video: torch.Tensor,
             'brightness_variance': torch.tensor(0.0, device=video.device)
         }
     
-    # Compute per-frame mean brightness
-    brightness = video.mean(dim=(3, 4))  # [B, T, C]
-    brightness_gray = brightness.mean(dim=-1)  # [B, T]
+    # Compute per-pixel brightness (grayscale)
+    # [B, T, H, W]
+    brightness_gray = video.mean(dim=-1)
     
-    # Compute rolling variance
+    # Compute rolling variance per pixel
     variances = []
     for t in range(T - window_size + 1):
+        # Window: [B, WindowSize, H, W]
         window = brightness_gray[:, t:t + window_size]
+        
+        # Calculate variance along time dimension for each pixel
+        # [B, H, W]
         var = window.var(dim=1)
-        variances.append(var)
+        
+        # Take spatial mean of the variance (average instability across image)
+        variances.append(var.mean(dim=(1, 2)))
     
-    variance_tensor = torch.stack(variances, dim=1)
+    # Stack variances [T-W+1, B] -> [B, T-W+1] because append list of [B] tensors?
+    # Actually var.mean(dim=(1,2)) returns [B].
+    variance_tensor = torch.stack(variances, dim=1) # [B, NumWindows]
+    
     mean_variance = variance_tensor.mean()
     
-    # Normalize to 0-1 score (empirical scaling)
-    flickering_score = torch.tanh(mean_variance * 50)
+    # Normalize to 0-1 score
+    # Pixel-wise variance is much higher than global average variance.
+    # For global flickering vs local, this scale might need tuning.
+    # With global flicker (0.5 switch), var is ~0.06. * 20 -> 1.2 -> tanh > 0.8
+    # With local flicker (5% area, 1.0 switch), var is ~0.01. * 20 -> 0.2 -> tanh ~ 0.2
+    # Increased scale factor from 50 to 100 to make local flickering more visible
+    flickering_score = torch.tanh(mean_variance * 100)
     
     return {
         'flickering_score': flickering_score,
