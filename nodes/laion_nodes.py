@@ -1,11 +1,10 @@
 import torch
 import logging
-from .base_node import VideoQualityNode
 from core.laion_aesthetic import calculate_laion_aesthetic_score, is_laion_available
 
 logger = logging.getLogger("ComfyUI-VideoQuality-Metrics")
 
-class VQ_LAIONAestheticScore(VideoQualityNode):
+class VQ_LAIONAestheticScore:
     """
     Node for calculating LAION Aesthetic Score (1-10) using CLIP+MLP.
     This is a "real" aesthetic predictor trained on human ratings.
