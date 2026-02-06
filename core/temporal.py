@@ -321,6 +321,7 @@ def calculate_motion_smoothness(video: torch.Tensor,
     Evaluate motion smoothness by analyzing flow acceleration (jerk).
     
     Lower jerk = smoother, more natural motion.
+    Uses normalized jerk (relative to image diagonal) for scale invariance.
     
     Args:
         video: Tensor [B, T, H, W, C] or [T, H, W, C] - video frames
@@ -329,18 +330,22 @@ def calculate_motion_smoothness(video: torch.Tensor,
     Returns:
         dict with:
             - smoothness_score: Motion smoothness (0-1, higher = smoother)
-            - mean_jerk: Mean jerk magnitude
+            - mean_jerk: Mean normalized jerk magnitude
     """
     if video.dim() == 4:
         video = video.unsqueeze(0)
     
     B, T, H, W, C = video.shape
     
+    # Need at least 3 frames to compute acceleration
     if T < 3:
         return {
             'smoothness_score': torch.tensor(1.0, device=video.device),
             'mean_jerk': torch.tensor(0.0, device=video.device)
         }
+    
+    # Normalization factor: image diagonal (for scale invariance)
+    diagonal = (H ** 2 + W ** 2) ** 0.5
     
     video_nchw = video.permute(0, 1, 4, 2, 3)
     
@@ -358,26 +363,35 @@ def calculate_motion_smoothness(video: torch.Tensor,
     
     flows = torch.stack(flows, dim=1)  # [B, T-1, 2, H, W]
     
-    # Compute velocity (first derivative)
-    if flows.shape[1] < 2:
+    # Normalize flows by diagonal for scale invariance
+    flows_normalized = flows / diagonal
+    
+    # Compute velocity change (first derivative of flow)
+    if flows_normalized.shape[1] < 2:
         return {
             'smoothness_score': torch.tensor(1.0, device=video.device),
             'mean_jerk': torch.tensor(0.0, device=video.device)
         }
     
-    velocity = flows[:, 1:] - flows[:, :-1]  # [B, T-2, 2, H, W]
+    velocity = flows_normalized[:, 1:] - flows_normalized[:, :-1]  # [B, T-2, 2, H, W]
     
-    # Compute jerk (second derivative)
+    # Compute jerk (second derivative: change in velocity change)
     if velocity.shape[1] < 2:
-        jerk_magnitude = torch.abs(velocity).mean()
+        # Only one velocity difference - use velocity magnitude as proxy
+        jerk_magnitude = torch.sqrt((velocity ** 2).sum(dim=2)).mean()
     else:
-        acceleration = velocity[:, 1:] - velocity[:, :-1]
+        acceleration = velocity[:, 1:] - velocity[:, :-1]  # [B, T-3, 2, H, W]
         jerk_magnitude = torch.sqrt((acceleration ** 2).sum(dim=2)).mean()
     
-    # Convert to smoothness score (inverse relationship)
-    smoothness_score = torch.exp(-jerk_magnitude * 10)
+    # Convert to smoothness score using sigmoid-like function
+    # jerk_magnitude is now in [0, ~0.5] range for typical videos
+    # Map so that jerk=0 -> smoothness=1, jerk=0.1 -> smoothness~0.5
+    # Using: smoothness = 1 / (1 + k * jerk) where k controls sensitivity
+    k = 10.0  # Tuned: jerk=0.1 gives 0.5, jerk=0.5 gives ~0.17
+    smoothness_score = 1.0 / (1.0 + k * jerk_magnitude)
     
     return {
         'smoothness_score': smoothness_score,
         'mean_jerk': jerk_magnitude
     }
+

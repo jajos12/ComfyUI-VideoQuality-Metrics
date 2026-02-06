@@ -5,34 +5,59 @@ A comprehensive suite of video quality assessment metrics.
 """
 
 # Import all node mappings from submodules
-from .nodes.reference_nodes import (
-    NODE_CLASS_MAPPINGS as REFERENCE_NODES,
-    NODE_DISPLAY_NAME_MAPPINGS as REFERENCE_NAMES
-)
-from .nodes.temporal_nodes import (
-    NODE_CLASS_MAPPINGS as TEMPORAL_NODES,
-    NODE_DISPLAY_NAME_MAPPINGS as TEMPORAL_NAMES
-)
-from .nodes.distribution_nodes import (
-    NODE_CLASS_MAPPINGS as DISTRIBUTION_NODES,
-    NODE_DISPLAY_NAME_MAPPINGS as DISTRIBUTION_NAMES
-)
-from .nodes.report_nodes import (
-    NODE_CLASS_MAPPINGS as REPORT_NODES,
-    NODE_DISPLAY_NAME_MAPPINGS as REPORT_NAMES
-)
-from .nodes.clip_nodes import (
-    NODE_CLASS_MAPPINGS as CLIP_NODES,
-    NODE_DISPLAY_NAME_MAPPINGS as CLIP_NAMES
-)
-from .nodes.dover_nodes import (
-    NODE_CLASS_MAPPINGS as DOVER_NODES,
-    NODE_DISPLAY_NAME_MAPPINGS as DOVER_NAMES
-)
-from .nodes.fast_vqa_nodes import (
-    NODE_CLASS_MAPPINGS as FASTVQA_NODES,
-    NODE_DISPLAY_NAME_MAPPINGS as FASTVQA_NAMES
-)
+import os
+
+# Import all node mappings from submodules
+if not os.getenv("PYTEST_CURRENT_TEST"):
+    from .nodes.reference_nodes import (
+        NODE_CLASS_MAPPINGS as REFERENCE_NODES,
+        NODE_DISPLAY_NAME_MAPPINGS as REFERENCE_NAMES
+    )
+    from .nodes.temporal_nodes import (
+        NODE_CLASS_MAPPINGS as TEMPORAL_NODES,
+        NODE_DISPLAY_NAME_MAPPINGS as TEMPORAL_NAMES
+    )
+    from .nodes.distribution_nodes import (
+        NODE_CLASS_MAPPINGS as DISTRIBUTION_NODES,
+        NODE_DISPLAY_NAME_MAPPINGS as DISTRIBUTION_NAMES
+    )
+    from .nodes.report_nodes import (
+        NODE_CLASS_MAPPINGS as REPORT_NODES,
+        NODE_DISPLAY_NAME_MAPPINGS as REPORT_NAMES
+    )
+    from .nodes.clip_nodes import (
+        NODE_CLASS_MAPPINGS as CLIP_NODES,
+        NODE_DISPLAY_NAME_MAPPINGS as CLIP_NAMES
+    )
+    from .nodes.dover_nodes import (
+        NODE_CLASS_MAPPINGS as DOVER_NODES,
+        NODE_DISPLAY_NAME_MAPPINGS as DOVER_NAMES
+    )
+    from .nodes.fast_vqa_nodes import (
+        NODE_CLASS_MAPPINGS as FASTVQA_NODES,
+        NODE_DISPLAY_NAME_MAPPINGS as FASTVQA_NAMES
+    )
+else:
+    # During tests, expose empty mappings to avoid ImportPathMismatchError
+    # The tests import core/nodes directly, so root package isn't needed
+    NODE_CLASS_MAPPINGS = {}
+    NODE_DISPLAY_NAME_MAPPINGS = {}
+    
+    # We still need these defines for the merge block below if we don't return early
+    REFERENCE_NODES = {}
+    REFERENCE_NAMES = {}
+    TEMPORAL_NODES = {}
+    TEMPORAL_NAMES = {}
+    DISTRIBUTION_NODES = {}
+    DISTRIBUTION_NAMES = {}
+    REPORT_NODES = {}
+    REPORT_NAMES = {}
+    CLIP_NODES = {}
+    CLIP_NAMES = {}
+    DOVER_NODES = {}
+    DOVER_NAMES = {}
+    FASTVQA_NODES = {}
+    FASTVQA_NAMES = {}
 
 # Merge all node mappings
 NODE_CLASS_MAPPINGS = {
@@ -56,6 +81,3 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
-
-
-

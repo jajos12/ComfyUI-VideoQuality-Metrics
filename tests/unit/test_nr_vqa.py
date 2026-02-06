@@ -6,11 +6,6 @@ Tests CLIP-IQA, DOVER, and FAST-VQA implementations.
 
 import torch
 import pytest
-import sys
-from pathlib import Path
-
-# Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.clip_iqa import (
     calculate_clip_aesthetic_score,
@@ -20,7 +15,7 @@ from core.clip_iqa import (
 from core.dover import (
     calculate_dover_quality,
     is_dover_available,
-    DOVERSimplified
+    DOVERBackbone
 )
 from core.fast_vqa import (
     calculate_fastvqa_quality,
@@ -124,7 +119,7 @@ class TestDOVER:
     
     def test_dover_model_creation(self):
         """Test that DOVER model can be created."""
-        model = DOVERSimplified()
+        model = DOVERBackbone()
         assert model is not None
         
         # Check dual heads exist
@@ -133,10 +128,11 @@ class TestDOVER:
     
     def test_dover_model_forward(self):
         """Test DOVER model forward pass."""
-        model = DOVERSimplified()
+        model = DOVERBackbone()
         model.eval()
         
-        x = torch.rand(2, 3, 224, 224)
+        # Input expected: [B, C, T, H, W]
+        x = torch.rand(2, 3, 8, 224, 224)
         
         with torch.no_grad():
             aesthetic, technical = model(x)
