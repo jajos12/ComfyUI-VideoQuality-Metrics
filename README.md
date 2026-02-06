@@ -18,6 +18,11 @@ A comprehensive suite of video quality assessment metrics for ComfyUI.
 - **FVD** - Fréchet Video Distance
 - **FID** - Fréchet Inception Distance
 
+### No-Reference Metrics (Deep Learning)
+- **CLIP-IQA** - Aesthetic Scoring & Text Alignment
+- **DOVER** - Disentangled Aesthetic & Technical Quality
+- **FAST-VQA** - Efficient High-Res Quality Assessment
+
 ### Visualization & Reporting
 - **Radar Charts** - Multi-metric comparison
 - **JSON Export** - Metrics logging
@@ -50,6 +55,10 @@ All nodes accept **Video Tensors** `[T, H, W, 3]` and **Image Batches** `[N, H, 
 | VQ Motion Smoothness | video_frames | smoothness_score, mean_jerk, summary |
 | VQ FVD | video_generated, video_reference | fvd, summary |
 | VQ FID | images_generated, images_reference | fid, summary |
+| VQ CLIP Aesthetic | images | aesthetic_score, summary |
+| VQ Text Alignment | video, prompt | alignment_score, summary |
+| VQ DOVER Quality | video | aesthetic, technical, overall, summary |
+| VQ FAST-VQA | video | quality_score, summary |
 | VQ Radar Chart | psnr, ssim, ... | radar_chart, metrics_json |
 | VQ Metrics Logger | metrics | json_output |
 
@@ -61,6 +70,9 @@ All nodes accept **Video Tensors** `[T, H, W, 3]` and **Image Batches** `[N, H, 
 | SSIM | > 0.95 | 0.90-0.95 | 0.85-0.90 | < 0.85 |
 | ΔE2000 | < 1.0 | 1.0-2.0 | 2.0-5.0 | > 5.0 |
 | FVD | < 50 | 50-150 | 150-300 | > 300 |
+| CLIP Aesthetic | > 0.7 | 0.6-0.7 | 0.4-0.6 | < 0.4 |
+| DOVER (Overall) | > 0.6 | 0.4-0.6 | 0.2-0.4 | < 0.2 |
+| FAST-VQA | > 0.65 | 0.5-0.65 | 0.3-0.5 | < 0.3 |
 
 ## Technical Documentation
 

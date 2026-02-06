@@ -140,6 +140,30 @@ A hybrid metric for video-to-video comparison.
 
 ---
 
+## 4. Deep Learning No-Reference Metrics (SOTA)
+These advanced metrics use neural networks trained on human subjective ratings (Mean Opinion Scores) to judge quality without needing a reference video. They are the **gold standard** for evaluating Text-to-Video models.
+
+### 4.1 CLIP-IQA (Aesthetic & Alignment)
+Leverages OpenAI's CLIP model (ViT-B/32) to measure visual appeal and prompt adherence.
+- **Aesthetic Score**: measures the "artistic beauty" of frames.
+- **Text-Video Alignment**: Measures how well the video matches the text prompt.
+- **Temporal Drift**: Detects if the video typically "forgets" the prompt over time (e.g., a cat turning into a dog).
+
+### 4.2 DOVER (Disentangled Objective Video Quality Evaluator)
+A state-of-the-art method that separates quality into two distinct axes:
+1.  **Aesthetic Score**: Composition, color harmony, lighting, and "artistic vibe".
+2.  **Technical Score**: Sharpness, noise, compression artifacts, and exposure issues.
+-   **Architecture**: Uses a **Swin Transformer (Tiny)** backbone.
+-   **Why use it**: Tells you *why* a video is bad (e.g., "Good composition but too blurry").
+
+### 4.3 FAST-VQA (Fragment Attention Network)
+Designed for efficiency and high-resolution video assessment.
+-   **Mechanism**: Uses **Grid Mini-patch Sampling (GMS)**. Instead of resizing a 4K video to 224x224 (destroying detail), it samples small 32x32 patches at full resolution.
+-   **Architecture**: Fragment Attention Network (FANet).
+-   **Use Case**: Best for detecting fine-grained artifacts like noise or upscaling glitches.
+
+---
+
 ## 4. Reporting & Workflow Analysis
 
 ### 4.1 Metrics Logger (JSON)
